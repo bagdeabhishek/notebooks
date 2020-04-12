@@ -1,4 +1,5 @@
-*.pkl
-*.gexf
-*.csv
-
+.ipynb_checkpoints
+pickle
+graphs
+dask-worker-space
+twitterAnalysis_files

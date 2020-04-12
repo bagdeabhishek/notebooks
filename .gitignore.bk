@@ -1,0 +1,7 @@
+.git
+.ipynb_checkpoints
+*.link
+*.txt
+dask-worker-space
+!*.ipynb
+
