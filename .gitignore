@@ -1,5 +1,6 @@
 .ipynb_checkpoints
-pickle
+pickles
 graphs
+files
 dask-worker-space
-twitterAnalysis_files
+twitterAnalysis_file
