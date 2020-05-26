@@ -1,0 +1,405 @@
+import datetime
+import os
+import stat
+from collections import Counter
+
+import matplotlib.pyplot as plt
+import networkx as nx
+import numpy as np
+import pandas as pd
+import psycopg2
+import psycopg2.extras
+import seaborn as sns
+from tqdm.notebook import tqdm
+from wordcloud import WordCloud
+
+
+class TwitterUtil:
+    DATABASE = {
+        "name": "abhishek",
+        "username": "abhishek",
+        "password": "vaishu",
+        "host": "localhost",
+        "port": "5432"
+    }
+    CLUSTERS_OF_INTEREST = [36041, 65124]
+    MRH_FILE_PATH = "pickles/mention_retweet_hastags(trending).pkl"
+    MRH_TIME_FILE_PATH = "pickles/mention_retweet_hastags_timeobj(trending).pkl"
+    CLUSTER0_LINK_PATH = "files/cluster36041.link"
+    CLUSTER1_LINK_PATH = "files/cluster65124.link"
+    CLUSTER0_LINK_IMPORTANCE_PATH = "files/cluster_36041(trending).urls.importance"
+    CLUSTER1_LINK_IMPORTANCE_PATH = "files/cluster_65124(trending).urls.importance"
+    CLUSTER0_TEXT_IMPORTANCE_PATH = "files/cluster_36041(trending).text.importance"
+    CLUSTER1_TEXT_IMPORTANCE_PATH = "files/cluster_65124(trending).text.importance"
+    EXCLUDE_LIST = [
+        'twitter.com',
+        'bit.ly',
+        'www.facebook.com',
+        'youtu.be',
+        'www.instagram.com',
+        'www.youtube.com',
+        'goo.gl',
+        'fb.me',
+        'ow.ly',
+        'fllwrs.com}\n',
+        'fllwrs.com',
+        'www.amazon.com',
+        'instagram.com',
+        'www.pscp.tv'
+    ]
+
+    def pg_get_conn(self):
+        """Get Postgres connection for the database dictionary in the class.
+        Returns:
+            Connection object : returns Post gres connection object
+
+        """
+        try:
+            conn = psycopg2.connect(database=self.DATABASE['name'],
+                                    user=self.DATABASE['username'], password=self.DATABASE['password'],
+                                    host=self.DATABASE['host'], port=self.DATABASE['port'])
+            return conn
+        except Exception as e:
+            print(str(e))
+
+    def run_query(self, query: str = """Select * from tweets_cleaned""", realdict: bool = False, arg: list = None):
+        """
+        Run a query on the connected database
+        :param query: query to execute
+        :type query: string
+        :param realdict: set True if you want the results as list of dictionary
+        :type realdict: bool
+        :param arg: Arguments if any needed to be passed to the query
+        :type arg: list
+        :return: List of tuples consisting of query results
+        :rtype: List
+        """
+        with self.pg_get_conn() as conn:
+            cur = conn.cursor(cursor_factory=psycopg2.extras.RealDictCursor) if realdict else conn.cursor()
+            print(query) if not arg else print(cur.mogrify(query, (arg,)))
+            cur.execute(query) if not arg else cur.execute(query, (arg,))
+            try:
+                ans = cur.fetchall()
+            except psycopg2.ProgrammingError as e:
+                ans = None
+            return ans
+
+    def create_graph(self, ls_tup: list) -> nx.DiGraph():
+        """
+        Create a Directed graph from the list of crawled tweets
+        :param ls_tup: list of dictionary or tuples where first element is user and
+        second handle is of user whose tweet was retweeted
+        :type ls_tup:
+        :return:
+        :rtype:
+        """
+        G = nx.DiGraph()
+        for dc in tqdm(ls_tup):
+            if isinstance(ls_tup, dict):
+                tfrom = dc['tweet_from']
+                rt = dc['retweeted_status_user_handle']
+            else:
+                tfrom = dc[0]
+                rt = dc[1]
+            if G.has_edge(tfrom, rt):
+                G[tfrom][rt]['weight'] += 1
+            else:
+                G.add_edge(tfrom, rt, weight=1)
+        return G
+
+    def __custom_words_accumulator(self, series, limit=None):
+        c = Counter()
+        for sentence in series:
+            if sentence:
+                sent_list = sentence.split(",")
+                c.update(sent_list)
+        return c.most_common() if not limit else c.most_common(limit)
+
+    def split_list(self, series, handleBool=True):
+        handles = []
+        listNoOfX = []
+        for groupList in series:
+            for handle, x in groupList:
+                handles.append(handle)
+                listNoOfX.append(x)
+        if handleBool:
+            return handles
+        else:
+            return listNoOfX
+
+    def get_barcharts(self, df, column_name="retweets"):
+        """
+        Plot the barcharts for tweets from clusters. The barcharts plot the top 50 retweets or mentions from each cluster.
+        Parameters
+        ----------
+        df : the Pandas dataframe containing tweets.
+        column_name : Name of the column to plot the barchart. Can be "retweets" or "mentions"
+
+        """
+        wf = df.groupby("cluster")[column_name].apply(self.__custom_words_accumulator, limit=50).reset_index()
+        wf2 = pd.DataFrame({
+            'cluster_id': np.repeat(wf['cluster'], 50),
+            'handle': self.split_list(wf[column_name]),
+            'noOfX': self.split_list(wf[column_name], handleBool=False)
+        })
+        clusters = wf2.cluster_id.unique()
+        sns.set(rc={'figure.figsize': (40, 10)})
+        i = 0
+        f, ax = plt.subplots(len(clusters), 1, figsize=(40, 100))
+        f.tight_layout(pad=6.0)
+        for cid in clusters:
+            g = sns.barplot(x="handle", y="noOfX", hue="cluster_id", data=wf2[wf2.cluster_id == cid], ax=ax[i])
+            g.set_xticklabels(g.get_xticklabels(), rotation=50, horizontalalignment='right')
+            i += 1
+
+    def plot_word_cloud(self, word_freq_dict, background_color="white", width=800, height=1000, max_words=300,
+                        figsize=(50, 50), wc_only=False, color_map="viridis"):
+        """
+        Plot the word cloud from dictionary
+        Parameters
+        ----------
+        word_freq_dict : dictionary containing words as keys and counts as values.
+        background_color :
+        width :
+        height :
+        max_words :
+        figsize :
+        wc_only :
+        color_map :
+
+        Returns
+        -------
+
+        """
+        word_cloud = WordCloud(background_color=background_color, width=width, height=height,
+                               max_words=max_words, colormap=color_map).generate_from_frequencies(
+            frequencies=word_freq_dict)
+        if wc_only:
+            return word_cloud
+        plt.figure(figsize=figsize)
+        plt.imshow(word_cloud, interpolation='bilinear')
+        plt.axis("off")
+        plt.show()
+
+    def reset_everything(self, source_table, min_degree=1, suffix=str(datetime.datetime.now())):
+        """
+        Reset everything from a new Twitter data table
+        Parameters
+        ----------
+        source_table : New table from which to fetch the data
+        min_degree : minimum degree below which all nodes are removed from the network Graph
+        suffix : suffix for the newly created files
+
+        Returns
+        -------
+
+        """
+        ls = self.run_query(
+            "Select tweet_from,retweeted_status_user_handle from {} where retweeted_status_user_handle is not null".format(
+                source_table))
+        G = self.create_graph(ls)
+        remove_nodes = [x[0] for x in G.degree(weight='weight') if x[1] <= min_degree]
+        G.remove_nodes_from(remove_nodes)
+        nx.write_gexf(G, "graphs/G_{0}.gexf".format(suffix))
+        self.update_pickle_files(source_table, suffix)
+        self.write_info_to_file(source_table, suffix)
+
+    def write_info_to_file(self, tablename, suffix, text_columns=['text', 'urls']):
+        """
+        Generate the text files for each cluster of interest.
+        Parameters
+        ----------
+        tablename : Name of the table from which to generate data
+        suffix : identifier for the generated text files
+        text_columns : columns which to dump in text file
+
+        Returns
+        -------
+
+        """
+        file_name = "files/cluster_{}({}).{}.importance"
+        for column in text_columns:
+            for cluster in self.CLUSTERS_OF_INTEREST:
+                try:
+                    f = open(file_name.format(cluster, suffix, column), 'w+')
+                    absolute_path = os.path.realpath(f.name)
+                    f.close()
+                    os.chmod(absolute_path, stat.S_IRWXO | stat.S_IRWXG | stat.S_IRWXU)
+                    query = "COPY (SELECT t.{},c.importance from {} t JOIN cluster_mapping c ON t.tweet_from = c.id where c.cluster = {}) TO '{}';".format(
+                        column, tablename, cluster, absolute_path)
+                    self.run_query(query)
+                except PermissionError as e:
+                    print("Please delete the file {}".format(file_name.format(cluster, suffix, column)))
+
+    def update_pickle_files(self, tablename="tweet_articles_tweepy", suffix=str(datetime.datetime.now())):
+        """
+        Update the pickle files used for analysis from database table
+        Parameters
+        ----------
+        tablename : Name of the new table
+        suffix : suffix for the generated files
+        Returns
+        -------
+
+        """
+        query = "SELECT t.created_at,t.tweet_from,t.user_mentions_name,t.retweeted_status_user_handle,t.hashtags,c.cluster,c.importance FROM {} AS t INNER JOIN cluster_mapping AS c ON t.tweet_from = c.id WHERE c.cluster in %s".format(
+            tablename)
+        ls = self.run_query(query, arg=tuple(self.CLUSTERS_OF_INTEREST))
+        df = pd.DataFrame(ls, columns=['time', 'handle', 'mentions', 'retweets', 'hashtags', 'cluster', 'importance'])
+        df['time'] = pd.to_datetime(df['time'], format="%a %b %d %H:%M:%S %z %Y")
+        for x in ['mentions', 'hashtags']:
+            df[x] = df[x].replace('{}', None)
+            df[x] = df[x].str.lstrip('{')
+            df[x] = df[x].str.rstrip('}')
+        self.MRH_TIME_FILE_PATH = 'pickles/mention_retweet_hastags_timeobj({0}).pkl'.format(suffix)
+        df.to_pickle(self.MRH_TIME_FILE_PATH)
+        df = df.drop(columns=['time'])
+        global MRH_FILE_PATH
+        self.MRH_FILE_PATH = 'pickles/mention_retweet_hastags({0}).pkl'.format(suffix)
+        df.to_pickle(self.MRH_FILE_PATH)
+        return df
+
+    def get_cluster_count(self, series):
+        """
+        A funtion to get the cluster count in case we group the original dataframe by a certain parameter
+        Ex. df.groupby("time").cluster.apply(get_cluster_count)
+        Parameters
+        ----------
+        series : The series passed
+
+        Returns
+        -------
+        Count for each cluster in the group
+
+        """
+        c = Counter()
+        c.update(series.to_list())
+        return pd.Series(dict(c.most_common()))
+
+    def plot_timeseries_data(self, res, cut_off_date_start=None, cut_off_date_end=None, lineplot=False):
+        """
+        Plot the data i.e cluster counts after getting result from below operation
+        Ex.res =  df.groupby("time").cluster.apply(get_cluster_count)
+
+        Parameters
+        ----------
+        res : result of this operation df.groupby("time").cluster.apply(get_cluster_count) after resetting index
+        cut_off_date_start : the start date for the graph
+        cut_off_date_end : the end date for graph
+        lineplot : whether to plot a line plot by default set to false which plots scatterplot
+
+        Returns
+        -------
+        None
+
+        """
+        number_of_clusters = len(res.level_1.unique())
+        sns.set(rc={'figure.figsize': (40, 30)})
+        if lineplot:
+            sns.lineplot(x="time", hue="level_1", y="cluster", data=res, legend="full",
+                         palette=sns.color_palette("muted", number_of_clusters))
+        else:
+            sns.scatterplot(x="time", hue="level_1", y="cluster", data=res, legend="full",
+                            palette=sns.color_palette("muted", number_of_clusters))
+        if cut_off_date_start or cut_off_date_end:
+            plt.xlim(cut_off_date_start, cut_off_date_end)
+
+    def get_links_dct(self, file, topk=None, importance=False):
+        """
+        Get the dictionary representing the count of sources ex. timesofindia.com from a text file
+        Parameters
+        ----------
+        file : The path of the file which has list of urls
+        topk : whether you want to return all the sources(None) or limit it top k values
+        importance : If set to true increments by importance of particular node instead of treating each node equally and incrementing by 1
+
+        Returns
+        -------
+        Dictionary with source and its counts
+
+        """
+        link_dct = {}
+        with open(file) as f:
+            for row in f:
+                try:
+                    if not row.startswith('{}'):
+                        url, importance = row.split()
+                        importance = float(importance)
+                        site_name = url.replace("{", "").replace("}", "").split('/')[2]
+                        if importance:
+                            if site_name not in link_dct:
+                                link_dct[site_name] = importance
+                            else:
+                                link_dct[site_name] += importance
+                        else:
+                            if site_name not in link_dct:
+                                link_dct[site_name] = 1
+                            else:
+                                link_dct[site_name] += 1
+                except ValueError as e:
+                    print(e)
+        for x in self.EXCLUDE_LIST:
+            link_dct.pop(x, None)
+        if topk:
+            link_dct = {k: v for k, v in sorted(link_dct.items(), key=lambda item: item[1])[:topk]}
+        else:
+            link_dct = {k: v for k, v in sorted(link_dct.items(), key=lambda item: item[1])}
+        return link_dct
+
+    def plot_wc_subplots(self, cluster0, cluster1, fig_size=(50, 50)):
+        """
+        Function to plot two wordclouds side by side just to provide easier comparison
+        Parameters
+        ----------
+        cluster0 : dictionary of thing_to_plot as key and its count as value(plotted red)
+        cluster1 : dictionary of thing_to_plot as key and its count as value(plotted blue)
+        fig_size : tuple denoting size of the figure
+
+        Returns
+        -------
+
+        """
+        wc0 = self.plot_word_cloud(cluster0, wc_only=True, width=800, color_map="autumn")
+        wc1 = self.plot_word_cloud(cluster1, wc_only=True, width=800, color_map="winter")
+        fig = plt.figure(figsize=fig_size)
+        fig.subplots_adjust(wspace=0)
+        s1 = fig.add_subplot(121)
+        s1.axis("off")
+        s1.imshow(wc0, aspect='auto')
+        s2 = fig.add_subplot(122)
+        s2.axis("off")
+        s2.imshow(wc1, aspect='auto')
+        fig.show()
+
+    def get_intersection_balanced_set(self, cluster0, cluster1, cutoff_ratio=0.01):
+        """
+        remove common elements from dictionaries {key: something, value: count}.
+        The values are scaled initially and then we subtract ratio of opposite set from the clusters ratio.
+        we remove values from both clusters which fall below the cutoff_ratio
+        Parameters
+        ----------
+        cluster0 : dictionary of counts
+        cluster1 : dictionary of counts from the other cluster
+        cutoff_ratio : the ratio below which we remove elements from the set. setting it to 0 is basic set intersection
+
+        Returns
+        -------
+        two dictionaries with rebalanced weights/counts
+
+        """
+        common_set = set(cluster0).intersection(set(cluster1))
+        total = sum(cluster0.values())
+        cluster0 = {k: v / total for k, v in cluster0.items()}
+        total = sum(cluster1.values())
+        cluster1 = {k: v / total for k, v in cluster1.items()}
+        for x in common_set:
+            cluster0[x] = round(cluster0[x] - cluster1[x], 3)
+            cluster1[x] = round(cluster1[x] - cluster0[x], 3)
+            if cluster0[x] <= cutoff_ratio:
+                cluster0.pop(x, None)
+            if cluster1[x] <= cutoff_ratio:
+                cluster1.pop(x, None)
+        return cluster0, cluster1
+
+    def __init__(self):
+        pass
