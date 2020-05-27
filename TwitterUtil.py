@@ -204,7 +204,7 @@ class TwitterUtil:
         self.update_pickle_files(source_table, suffix)
         self.write_info_to_file(source_table, suffix)
 
-    def write_info_to_file(self, tablename, suffix, text_columns=['text', 'urls']):
+    def write_info_to_file(self, tablename, suffix=str(datetime.datetime.now()), text_columns=['text', 'urls']):
         """
         Generate the text files for each cluster of interest.
         Parameters
