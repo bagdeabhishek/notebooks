@@ -219,6 +219,7 @@ class TwitterUtil:
         """
         file_name = "files/cluster_{}({}).{}.importance"
         for column in text_columns:
+            cluster_id = 0
             for cluster in self.CLUSTERS_OF_INTEREST:
                 try:
                     f = open(file_name.format(cluster, suffix, column), 'w+')
@@ -228,6 +229,11 @@ class TwitterUtil:
                     query = "COPY (SELECT t.{},c.importance from {} t JOIN cluster_mapping c ON t.tweet_from = c.id where c.cluster = {}) TO '{}';".format(
                         column, tablename, cluster, absolute_path)
                     self.run_query(query)
+                    if cluster_id%2 == 0:
+                        self.CLUSTER0_LINK_IMPORTANCE_PATH = absolute_path
+                    elif cluster_id%2 == 1:
+                        self.CLUSTER1_LINK_IMPORTANCE_PATH = absolute_path
+                    cluster_id+=1
                 except PermissionError as e:
                     print("Please delete the file {}".format(file_name.format(cluster, suffix, column)))
 
