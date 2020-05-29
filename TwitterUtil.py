@@ -473,6 +473,25 @@ class TwitterUtil:
                 cluster1.pop(x, None)
         return cluster0, cluster1
 
+    def plot_wordclouds_side_by_side(self, df, text_column, value_column):
+        """
+        This is utility method to plot wordclouds side by side just by giving the data frame and the key and value columns as parameters.
+        This function basically takes care of converting the dataframe into dictionaries.
+        Parameters
+        ----------
+        df : dataframe(Note the cluster column should be present, other wise this will throw exception)
+        text_column : the column name of the df which has text that's displayed in WC
+        value_column : the name of value clumn which will determine size of words in word cloud.
+
+        Returns
+        -------
+        None
+        """
+        value_dict = {}
+        for cluster in self.CLUSTERS_OF_INTEREST:
+            value_dict[cluster] = dict(df[df["cluster"] == cluster][[text_column, value_column]].to_dict('split')['data'])
+        self.plot_wc_subplots(value_dict[self.CLUSTERS_OF_INTEREST[0]], value_dict[self.CLUSTERS_OF_INTEREST[1]])
+
     def __init__(self):
         self.MRH_FILE_PATH = max(glob("pickles/mention_retweet_hastags*.pkl"), key=os.path.getctime)
         self.MRH_TIME_FILE_PATH = max(glob("pickles/mention_retweet_hastags_timeobj*.pkl"), key=os.path.getctime)
