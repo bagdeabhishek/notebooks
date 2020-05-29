@@ -5,3 +5,6 @@ graphs
 files
 dask-worker-space
 twitterAnalysis_file
+*.txt
+*.ipynb
+*.md
