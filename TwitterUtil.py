@@ -128,6 +128,29 @@ class TwitterUtil:
         else:
             return listNoOfX
 
+    def get_column_counts_by_cluster(self, df, column_name="retweets", limit=50):
+        """
+        Get the occurrences of particular string in any column in the dataframe. You can plot these counts in a bar graph using tu.get_barcharts()
+
+        Parameters
+        ----------
+        df : dataframe read from MRH_TIME_FILE_PATH
+        column_name : name of column name to analyze
+        limit : limit of records
+
+        Returns
+        -------
+        dataframe containing counts of each individual value in column and cluster
+
+        """
+        wf = df.groupby("cluster")[column_name].apply(self.__custom_words_accumulator, limit=limit).reset_index()
+        wf2 = pd.DataFrame({
+            'cluster_id': np.repeat(wf['cluster'], limit),
+            'handle': self.split_list(wf[column_name]),
+            'noOfX': self.split_list(wf[column_name], handleBool=False)
+        })
+        return wf2
+
     def get_barcharts(self, df, column_name="retweets", limit=50, return_val=False):
         """
         Plot the barcharts for tweets from clusters. The barcharts plot the top 50 retweets or mentions from each cluster.
@@ -142,12 +165,7 @@ class TwitterUtil:
         Dataframe containing the results plotted if return_val==True else None
 
         """
-        wf = df.groupby("cluster")[column_name].apply(self.__custom_words_accumulator, limit=limit).reset_index()
-        wf2 = pd.DataFrame({
-            'cluster_id': np.repeat(wf['cluster'], limit),
-            'handle': self.split_list(wf[column_name]),
-            'noOfX': self.split_list(wf[column_name], handleBool=False)
-        })
+        wf2 = self.get_column_counts_by_cluster(df, column_name, limit)
         clusters = wf2.cluster_id.unique()
         sns.set(rc={'figure.figsize': (40, 10)})
         i = 0
