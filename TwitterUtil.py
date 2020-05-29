@@ -2,6 +2,7 @@ import datetime
 import os
 import stat
 from collections import Counter
+from glob import glob
 
 import matplotlib.pyplot as plt
 import networkx as nx
@@ -127,18 +128,23 @@ class TwitterUtil:
         else:
             return listNoOfX
 
-    def get_barcharts(self, df, column_name="retweets"):
+    def get_barcharts(self, df, column_name="retweets", limit=50, return_val=False):
         """
         Plot the barcharts for tweets from clusters. The barcharts plot the top 50 retweets or mentions from each cluster.
         Parameters
         ----------
         df : the Pandas dataframe containing tweets.
         column_name : Name of the column to plot the barchart. Can be "retweets" or "mentions"
+        limit: the no of records these barcharts should be limited to
+        return_val: if set to true will also return the dataframe used to plot bar graph, default is false
+        Returns
+        ---------
+        Dataframe containing the results plotted if return_val==True else None
 
         """
-        wf = df.groupby("cluster")[column_name].apply(self.__custom_words_accumulator, limit=50).reset_index()
+        wf = df.groupby("cluster")[column_name].apply(self.__custom_words_accumulator, limit=limit).reset_index()
         wf2 = pd.DataFrame({
-            'cluster_id': np.repeat(wf['cluster'], 50),
+            'cluster_id': np.repeat(wf['cluster'], limit),
             'handle': self.split_list(wf[column_name]),
             'noOfX': self.split_list(wf[column_name], handleBool=False)
         })
@@ -151,6 +157,7 @@ class TwitterUtil:
             g = sns.barplot(x="handle", y="noOfX", hue="cluster_id", data=wf2[wf2.cluster_id == cid], ax=ax[i])
             g.set_xticklabels(g.get_xticklabels(), rotation=50, horizontalalignment='right')
             i += 1
+        return wf2 if return_val else None
 
     def plot_word_cloud(self, word_freq_dict, background_color="white", width=800, height=1000, max_words=300,
                         figsize=(50, 50), wc_only=False, color_map="viridis"):
@@ -204,7 +211,7 @@ class TwitterUtil:
         self.update_pickle_files(source_table, suffix)
         self.write_info_to_file(source_table, suffix)
 
-    def write_info_to_file(self, tablename, suffix, text_columns=['text', 'urls']):
+    def write_info_to_file(self, tablename, suffix=str(datetime.datetime.now()), text_columns=['text', 'urls']):
         """
         Generate the text files for each cluster of interest.
         Parameters
@@ -219,6 +226,7 @@ class TwitterUtil:
         """
         file_name = "files/cluster_{}({}).{}.importance"
         for column in text_columns:
+            cluster_id = 0
             for cluster in self.CLUSTERS_OF_INTEREST:
                 try:
                     f = open(file_name.format(cluster, suffix, column), 'w+')
@@ -228,6 +236,11 @@ class TwitterUtil:
                     query = "COPY (SELECT t.{},c.importance from {} t JOIN cluster_mapping c ON t.tweet_from = c.id where c.cluster = {}) TO '{}';".format(
                         column, tablename, cluster, absolute_path)
                     self.run_query(query)
+                    if cluster_id % 2 == 0:
+                        self.CLUSTER0_LINK_IMPORTANCE_PATH = absolute_path
+                    elif cluster_id % 2 == 1:
+                        self.CLUSTER1_LINK_IMPORTANCE_PATH = absolute_path
+                    cluster_id += 1
                 except PermissionError as e:
                     print("Please delete the file {}".format(file_name.format(cluster, suffix, column)))
 
@@ -402,4 +415,11 @@ class TwitterUtil:
         return cluster0, cluster1
 
     def __init__(self):
-        pass
+        self.MRH_FILE_PATH = max(glob("pickles/mention_retweet_hastags*.pkl"), key=os.path.getctime)
+        self.MRH_TIME_FILE_PATH = max(glob("pickles/mention_retweet_hastags_timeobj*.pkl"), key=os.path.getctime)
+        self.CLUSTER0_LINK_PATH = max(glob("files/cluster*.link"), key=os.path.getctime)
+        self.CLUSTER1_LINK_PATH = max(glob("files/cluster*.link"), key=os.path.getctime)
+        self.CLUSTER0_LINK_IMPORTANCE_PATH = max(glob("files/cluster_*.urls.importance"), key=os.path.getctime)
+        self.CLUSTER1_LINK_IMPORTANCE_PATH = max(glob("files/cluster_*.urls.importance"), key=os.path.getctime)
+        self.CLUSTER0_TEXT_IMPORTANCE_PATH = max(glob("files/cluster_*.text.importance"), key=os.path.getctime)
+        self.CLUSTER1_TEXT_IMPORTANCE_PATH = max(glob("files/cluster_*.text.importance"), key=os.path.getctime)
