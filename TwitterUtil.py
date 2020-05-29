@@ -2,6 +2,7 @@ import datetime
 import os
 import stat
 from collections import Counter
+from glob import glob
 
 import matplotlib.pyplot as plt
 import networkx as nx
@@ -229,11 +230,11 @@ class TwitterUtil:
                     query = "COPY (SELECT t.{},c.importance from {} t JOIN cluster_mapping c ON t.tweet_from = c.id where c.cluster = {}) TO '{}';".format(
                         column, tablename, cluster, absolute_path)
                     self.run_query(query)
-                    if cluster_id%2 == 0:
+                    if cluster_id % 2 == 0:
                         self.CLUSTER0_LINK_IMPORTANCE_PATH = absolute_path
-                    elif cluster_id%2 == 1:
+                    elif cluster_id % 2 == 1:
                         self.CLUSTER1_LINK_IMPORTANCE_PATH = absolute_path
-                    cluster_id+=1
+                    cluster_id += 1
                 except PermissionError as e:
                     print("Please delete the file {}".format(file_name.format(cluster, suffix, column)))
 
@@ -408,4 +409,11 @@ class TwitterUtil:
         return cluster0, cluster1
 
     def __init__(self):
-        pass
+        self.MRH_FILE_PATH = max(glob("pickles/mention_retweet_hastags*.pkl"), key=os.path.getctime)
+        self.MRH_TIME_FILE_PATH = max(glob("pickles/mention_retweet_hastags_timeobj*.pkl"), key=os.path.getctime)
+        self.CLUSTER0_LINK_PATH = max(glob("files/cluster*.link"), key=os.path.getctime)
+        self.CLUSTER1_LINK_PATH = max(glob("files/cluster*.link"), key=os.path.getctime)
+        self.CLUSTER0_LINK_IMPORTANCE_PATH = max(glob("files/cluster_*.urls.importance"), key=os.path.getctime)
+        self.CLUSTER1_LINK_IMPORTANCE_PATH = max(glob("files/cluster_*.urls.importance"), key=os.path.getctime)
+        self.CLUSTER0_TEXT_IMPORTANCE_PATH = max(glob("files/cluster_*.text.importance"), key=os.path.getctime)
+        self.CLUSTER1_TEXT_IMPORTANCE_PATH = max(glob("files/cluster_*.text.importance"), key=os.path.getctime)
