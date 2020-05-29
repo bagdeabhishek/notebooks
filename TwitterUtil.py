@@ -473,12 +473,13 @@ class TwitterUtil:
                 cluster1.pop(x, None)
         return cluster0, cluster1
 
-    def plot_wordclouds_side_by_side(self, df, text_column, value_column):
+    def plot_wordclouds_side_by_side(self, df, text_column, value_column, cluster_column="cluster"):
         """
         This is utility method to plot wordclouds side by side just by giving the data frame and the key and value columns as parameters.
         This function basically takes care of converting the dataframe into dictionaries.
         Parameters
         ----------
+        cluster_column : The column of df which has the cluster number (set to "cluster" by default)
         df : dataframe(Note the cluster column should be present, other wise this will throw exception)
         text_column : the column name of the df which has text that's displayed in WC
         value_column : the name of value clumn which will determine size of words in word cloud.
@@ -489,7 +490,7 @@ class TwitterUtil:
         """
         value_dict = {}
         for cluster in self.CLUSTERS_OF_INTEREST:
-            value_dict[cluster] = dict(df[df["cluster"] == cluster][[text_column, value_column]].to_dict('split')['data'])
+            value_dict[cluster] = dict(df[df[cluster_column] == cluster][[text_column, value_column]].to_dict('split')['data'])
         self.plot_wc_subplots(value_dict[self.CLUSTERS_OF_INTEREST[0]], value_dict[self.CLUSTERS_OF_INTEREST[1]])
 
     def __init__(self):
