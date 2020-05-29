@@ -1,3 +1,4 @@
+import csv
 import datetime
 import os
 import stat
@@ -11,6 +12,7 @@ import pandas as pd
 import psycopg2
 import psycopg2.extras
 import seaborn as sns
+import tweepy
 from tqdm.notebook import tqdm
 from wordcloud import WordCloud
 
@@ -23,6 +25,7 @@ class TwitterUtil:
         "host": "localhost",
         "port": "5432"
     }
+    TWITTER_AUTH_FILE = "/home/abhishek/Documents/TweetCrawlMultiThreaded/twitteraccesscodes.csv"
     CLUSTERS_OF_INTEREST = [36041, 65124]
     MRH_FILE_PATH = "pickles/mention_retweet_hastags(trending).pkl"
     MRH_TIME_FILE_PATH = "pickles/mention_retweet_hastags_timeobj(trending).pkl"
@@ -48,6 +51,44 @@ class TwitterUtil:
         'instagram.com',
         'www.pscp.tv'
     ]
+
+    def get_credentials(self):
+        """
+        Get Twitter Authentication credentials from csv file whose location is given by TWITTER_AUTH_FILE variable
+        Returns
+        -------
+        list of dictionaries containing credentials
+
+        """
+        credentials_list = []
+        with open(self.TWITTER_AUTH_FILE) as f:
+            cr = csv.reader(f)
+            keys = next(cr)
+            for row in cr:
+                dct = {}
+                for i in range(len(row)):
+                    dct[keys[i]] = row[i]
+                credentials_list.append(dct)
+        return credentials_list
+
+    def get_tweepy_api(self):
+        """
+        get a list tweepy api Objects which can be used to run tweepy queries
+        Returns
+        -------
+        list of tweepy api objects
+
+        """
+        api_list = []
+        for dct in self.get_credentials():
+            consumer_key = dct['consumer_key']
+            consumer_secret = dct['consumer_secret']
+            access_token = dct['access_token']
+            access_token_secret = dct['access_token_secret']
+            auth = tweepy.OAuthHandler(consumer_key, consumer_secret)
+            auth.set_access_token(access_token, access_token_secret)
+            api_list.append(tweepy.auth.API(auth, wait_on_rate_limit=True))
+        return api_list
 
     def pg_get_conn(self):
         """Get Postgres connection for the database dictionary in the class.
