@@ -150,11 +150,12 @@ class TwitterUtil:
                 G.add_edge(tfrom, rt, weight=1)
         return G
 
-    def hashtag_mention_accumulator(self, series, limit=None):
+    def hashtag_mention_accumulator(self, series, limit=None, delimiter=","):
         """
         This splits the hashtags or mentions separated by comma. Use with apply function
         Parameters
         ----------
+        delimiter : the delimiter used to split the string
         series : series passed in apply.
         limit : total number of words to include
 
@@ -166,7 +167,7 @@ class TwitterUtil:
         c = Counter()
         for sentence in series:
             if sentence:
-                sent_list = sentence.split(",")
+                sent_list = sentence.split(delimiter)
                 c.update(sent_list)
         return c.most_common() if not limit else c.most_common(limit)
 
