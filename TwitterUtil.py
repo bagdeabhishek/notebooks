@@ -25,7 +25,7 @@ class TwitterUtil:
         "host": "localhost",
         "port": "5432"
     }
-    FONT_PATH = "files/merged.ttf"
+    FONT_PATH = "combinedFont.ttf"
     TWITTER_AUTH_FILE = "/home/abhishek/Documents/TweetCrawlMultiThreaded/twitteraccesscodes.csv"
     CLUSTERS_OF_INTEREST = [36041, 65124]
     MRH_FILE_PATH = "pickles/mention_retweet_hastags(trending).pkl"
