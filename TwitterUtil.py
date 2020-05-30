@@ -199,7 +199,7 @@ class TwitterUtil:
         """
         wf = df.groupby("cluster")[column_name].apply(self.hashtag_mention_accumulator, limit=limit).reset_index()
         wf2 = pd.DataFrame({
-            'cluster_id': np.repeat(wf['cluster'], limit),
+            'cluster': np.repeat(wf['cluster'], limit),
             'handle': self.split_list(wf[column_name]),
             'noOfX': self.split_list(wf[column_name], handleBool=False)
         })
@@ -226,7 +226,7 @@ class TwitterUtil:
         f, ax = plt.subplots(len(clusters), 1, figsize=(40, 100))
         f.tight_layout(pad=6.0)
         for cid in clusters:
-            g = sns.barplot(x="handle", y="noOfX", hue="cluster_id", data=wf2[wf2.cluster_id == cid], ax=ax[i])
+            g = sns.barplot(x="handle", y="noOfX", hue="cluster", data=wf2[wf2.cluster_id == cid], ax=ax[i])
             g.set_xticklabels(g.get_xticklabels(), rotation=50, horizontalalignment='right')
             i += 1
         return wf2 if return_val else None
