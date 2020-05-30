@@ -221,7 +221,7 @@ class TwitterUtil:
 
         """
         wf2 = self.get_column_counts_by_cluster(df, column_name, limit)
-        clusters = wf2.cluster_id.unique()
+        clusters = wf2.cluster.unique()
         sns.set(rc={'figure.figsize': (40, 10)})
         i = 0
         f, ax = plt.subplots(len(clusters), 1, figsize=(40, 100))
