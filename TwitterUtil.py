@@ -526,7 +526,6 @@ class TwitterUtil:
             user_info["cluster"] = cluster
             return pd.Series(user_info)
         except Exception as e:
-            print(handle, e)
             return pd.Series(dict({"screen_name": handle, "description": "NOT FOUND", "cluster": cluster}))
 
     def get_twitter_user_info(self, df_handle, threads=20, handle_column="handle", cluster_column="cluster"):
