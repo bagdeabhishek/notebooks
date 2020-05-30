@@ -183,7 +183,7 @@ class TwitterUtil:
         else:
             return listNoOfX
 
-    def get_column_counts_by_cluster(self, df, column_name="retweets", limit=50):
+    def get_column_counts_by_cluster(self, df, column_name="retweets", limit=None):
         """
         Get the occurrences of particular string in any column in the dataframe. You can plot these counts in a bar graph using tu.get_barcharts()
 
