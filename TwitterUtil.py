@@ -25,6 +25,7 @@ class TwitterUtil:
         "host": "localhost",
         "port": "5432"
     }
+    FONT_PATH = "files/merged.ttf"
     TWITTER_AUTH_FILE = "/home/abhishek/Documents/TweetCrawlMultiThreaded/twitteraccesscodes.csv"
     CLUSTERS_OF_INTEREST = [36041, 65124]
     MRH_FILE_PATH = "pickles/mention_retweet_hastags(trending).pkl"
@@ -238,7 +239,7 @@ class TwitterUtil:
 
         """
         word_cloud = WordCloud(background_color=background_color, width=width, height=height,
-                               max_words=max_words, colormap=color_map).generate_from_frequencies(
+                               max_words=max_words, colormap=color_map, font_path=self.FONT_PATH).generate_from_frequencies(
             frequencies=word_freq_dict)
         if wc_only:
             return word_cloud
