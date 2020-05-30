@@ -4,7 +4,6 @@ import os
 import stat
 from collections import Counter
 from glob import glob
-from itertools import repeat
 
 import matplotlib.pyplot as plt
 import networkx as nx
@@ -169,7 +168,8 @@ class TwitterUtil:
             if sentence:
                 sent_list = sentence.split(delimiter)
                 c.update(sent_list)
-        return c.most_common() if not limit else c.most_common(limit)
+        result_dict = dict(c.most_common()) if not limit else dict(c.most_common(limit))
+        return pd.Series(result_dict)
 
     def split_list(self, series, handleBool=True):
         handles = []
@@ -198,13 +198,10 @@ class TwitterUtil:
         dataframe containing counts of each individual value in column and cluster
 
         """
-        wf = df.groupby("cluster")[column_name].apply(self.hashtag_mention_accumulator, limit=limit).reset_index()
-        wf2 = pd.DataFrame({
-            'cluster': repeat(wf['cluster']),
-            'handle': self.split_list(wf[column_name]),
-            'noOfX': self.split_list(wf[column_name], handleBool=False)
-        })
-        return wf2
+        wf = df.groupby("cluster")[column_name].apply(self.hashtag_mention_accumulator,
+                                                      limit=limit).reset_index().rename(
+            columns={'handle': 'noOfX', 'level_1': 'handle'})
+        return wf
 
     def get_barcharts(self, df, column_name="retweets", limit=50, return_val=False):
         """
