@@ -150,7 +150,19 @@ class TwitterUtil:
                 G.add_edge(tfrom, rt, weight=1)
         return G
 
-    def __custom_words_accumulator(self, series, limit=None):
+    def hashtag_mention_accumulator(self, series, limit=None):
+        """
+        This splits the hashtags or mentions separated by comma. Use with apply function
+        Parameters
+        ----------
+        series : series passed in apply.
+        limit : total number of words to include
+
+        Returns
+        -------
+        dictionary of hashtags/mentions with frequencies.
+
+        """
         c = Counter()
         for sentence in series:
             if sentence:
