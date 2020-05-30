@@ -4,10 +4,10 @@ import os
 import stat
 from collections import Counter
 from glob import glob
+from itertools import repeat
 
 import matplotlib.pyplot as plt
 import networkx as nx
-import numpy as np
 import pandas as pd
 import psycopg2
 import psycopg2.extras
@@ -200,7 +200,7 @@ class TwitterUtil:
         """
         wf = df.groupby("cluster")[column_name].apply(self.hashtag_mention_accumulator, limit=limit).reset_index()
         wf2 = pd.DataFrame({
-            'cluster': np.repeat(wf['cluster'], limit),
+            'cluster': repeat(wf['cluster']),
             'handle': self.split_list(wf[column_name]),
             'noOfX': self.split_list(wf[column_name], handleBool=False)
         })
