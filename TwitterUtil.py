@@ -88,7 +88,7 @@ class TwitterUtil:
             access_token_secret = dct['access_token_secret']
             auth = tweepy.OAuthHandler(consumer_key, consumer_secret)
             auth.set_access_token(access_token, access_token_secret)
-            api_list.append(tweepy.auth.API(auth, wait_on_rate_limit=True))
+            api_list.append(tweepy.auth.API(auth, wait_on_rate_limit=True, wait_on_rate_limit_notify=True))
         return api_list
 
     def pg_get_conn(self):
