@@ -197,7 +197,7 @@ class TwitterUtil:
         dataframe containing counts of each individual value in column and cluster
 
         """
-        wf = df.groupby("cluster")[column_name].apply(self.__custom_words_accumulator, limit=limit).reset_index()
+        wf = df.groupby("cluster")[column_name].apply(self.hashtag_mention_accumulator, limit=limit).reset_index()
         wf2 = pd.DataFrame({
             'cluster_id': np.repeat(wf['cluster'], limit),
             'handle': self.split_list(wf[column_name]),
