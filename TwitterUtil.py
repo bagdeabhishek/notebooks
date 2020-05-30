@@ -3,6 +3,7 @@ import datetime
 import os
 import stat
 from collections import Counter
+from concurrent.futures.thread import ThreadPoolExecutor
 from glob import glob
 
 import matplotlib.pyplot as plt
@@ -249,7 +250,8 @@ class TwitterUtil:
 
         """
         word_cloud = WordCloud(background_color=background_color, width=width, height=height,
-                               max_words=max_words, colormap=color_map, font_path=self.FONT_PATH).generate_from_frequencies(
+                               max_words=max_words, colormap=color_map,
+                               font_path=self.FONT_PATH).generate_from_frequencies(
             frequencies=word_freq_dict)
         if wc_only:
             return word_cloud
@@ -501,8 +503,55 @@ class TwitterUtil:
         """
         value_dict = {}
         for cluster in self.CLUSTERS_OF_INTEREST:
-            value_dict[cluster] = dict(df[df[cluster_column] == cluster][[text_column, value_column]].to_dict('split')['data'])
+            value_dict[cluster] = dict(
+                df[df[cluster_column] == cluster][[text_column, value_column]].to_dict('split')['data'])
         self.plot_wc_subplots(value_dict[self.CLUSTERS_OF_INTEREST[0]], value_dict[self.CLUSTERS_OF_INTEREST[1]])
+
+    def fetch_user_info(self, handle, cluster, api):
+        """
+        Utility function to get the twitter user information for a single user. For large number of handles use get_twitter_user_info()
+        Parameters
+        ----------
+        handle : the user screen name
+        cluster : cluster to which the user belongs to
+        api : Tweepy API object
+
+        Returns
+        -------
+        Pandas series containing all the relevant information
+
+        """
+        try:
+            user_info = api.get_user(handle)._json
+            user_info["cluster"] = cluster
+            return pd.Series(user_info)
+        except Exception as e:
+            print(handle, e)
+            return pd.Series(dict({"screen_name": handle, "description": "NOT FOUND", "cluster": cluster}))
+
+    def get_twitter_user_info(self, df_handle, threads=20, handle_column="handle", cluster_column="cluster"):
+        """
+        Get user information from twitter screen names
+        Parameters
+        ----------
+        df_handle : the DataFrame having handle information (Note: Deduplicate before hand)
+        threads : number of threads to use
+        handle_column : name of the column containing user screen name
+        cluster_column : name of the cluster column
+
+        Returns
+        -------
+        list of futures objects.
+
+        """
+        apis = self.get_tweepy_api()
+        results = []
+        with ThreadPoolExecutor(max_workers=threads) as executor:
+            for index, row in tqdm(df_handle.iterrows()):
+                user_info = executor.submit(self.fetch_user_info, row[handle_column], row[cluster_column],
+                                            apis[index % len(apis)])
+                results.append(user_info)
+        return results
 
     def __init__(self):
         self.MRH_FILE_PATH = max(glob("pickles/mention_retweet_hastags*.pkl"), key=os.path.getctime)
